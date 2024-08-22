@@ -126,6 +126,10 @@ def remove_stale_tracks(dir_id: int, dir_path: str):
     cursor.execute(query, (dir_id, *tracks_in_dir))
     connection.commit()
 
+def remove_stale_dirs(paths: list[str]):
+    placeholders = ', '.join('?' for _ in paths)
+    cursor.execute(f"DELETE FROM directories WHERE path IN ({placeholders})", paths)
+    connection.commit()
 
 class Scanner():
     def __init__(self, root_dir: str) -> None:
@@ -140,14 +144,23 @@ class Scanner():
 
         self.cached_directories = cached_directories
         self.known_directories = [dir.dir_path for dir in cached_directories]
+        deleted_dirs = []
 
         for d in self.cached_directories:
             print(f"SCANNING {d.dir_path}")
+
+            if not os.path.isdir(d.dir_path):
+                # Directory has been deleted or moved on disk
+                deleted_dirs.append(d.dir_path)
+                continue
+
             self.scan_directory(d.dir_id, d.dir_path)
 
             # Update the directory's mtime in the database
             cursor.execute("UPDATE directories SET mtime = ? WHERE dir_id = ?", (int(os.path.getmtime(d.dir_path)), d.dir_id))
             connection.commit()
+        
+        remove_stale_dirs(deleted_dirs)
 
     def scan_directory(self, dir_id: int, dir_path: str):
         # Fetch all tracks in directory
