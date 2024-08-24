@@ -2,13 +2,11 @@ import os
 import mutagen
 import logging
 
-from dotenv import load_dotenv
 from dataclasses import dataclass
 from db_manager import DatabaseManager
 from typing import Optional, List, Tuple
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('scanner')
 
 @dataclass
 class Directory:
@@ -90,7 +88,7 @@ class FileScanner:
         self.db.connection.commit()
 
     def scan_directory(self, directory: Directory):
-        logging.info(f"Scanning directory {directory.path}")
+        logger.info(f"Scanning directory {directory.path}")
 
         self.db.cursor.execute("SELECT * FROM tracks WHERE dir_id = ?", (directory.id,))
         cached_files = [Track(*row) for row in self.db.cursor.fetchall()]
@@ -112,7 +110,7 @@ class FileScanner:
                     # Cached and up-to-date
                     continue
 
-                logging.info(f"Scanning track {filepath}")
+                logger.info(f"Scanning track {filepath}")
                 metadata = MetadataManager().get_metadata(filepath)
                 if not metadata:
                     continue
@@ -127,7 +125,7 @@ class FileScanner:
     
     def delete_stale_directories(self):
         for dir in self.deleted_directories:
-            logging.info(f"Deleting directory {dir.path}")
+            logger.info(f"Deleting directory {dir.path}")
             self.db.cursor.execute("DELETE FROM directories WHERE dir_id = ?", (dir.id,))
     
     def delete_stale_tracks(self):
@@ -144,7 +142,7 @@ class FileScanner:
             if os.path.isfile(path):
                 continue
             
-            logging.info(f"Deleting track {path}")
+            logger.info(f"Deleting track {path}")
             deleted_tracks.append(os.path.dirname(path))
 
         placeholders = ', '.join('?' for _ in deleted_tracks)
@@ -159,7 +157,7 @@ class FileScanner:
 
     def commit_directories(self):
         for directory in self.new_directories:
-            logging.info(f"Inserting directory {directory.path}")
+            logger.info(f"Inserting directory {directory.path}")
             query = "INSERT INTO directories (path, mtime) VALUES (?, ?)" 
             self.db.cursor.execute(query, (directory.path, directory.mtime))
 
@@ -177,7 +175,7 @@ class FileScanner:
             album_id = self.get_or_insert_album(track[1].album, albumartist_id)
             dir_id = directories.get(dir_path)
 
-            logging.info(f"Inserting track {filename}")
+            logger.info(f"Inserting track {filename}")
 
             query = """
                 INSERT INTO tracks (title, artist_id, album_id, dir_id, filename, mtime)
@@ -193,7 +191,7 @@ class FileScanner:
             mtime = int(os.path.getmtime(track[0]))
             filename = os.path.basename(track[0])
 
-            logging.info(f"Updating track {filename}")
+            logger.info(f"Updating track {filename}")
 
             query = """
                 UPDATE tracks
@@ -207,7 +205,7 @@ class FileScanner:
         artist_id = self.db.cursor.fetchone()
 
         if artist_id is None:
-            logging.info(f"Inserting artist {name}")
+            logger.info(f"Inserting artist {name}")
             self.db.cursor.execute("INSERT INTO artists (name) VALUES (?)", (name, ))
             return self.db.cursor.lastrowid
 
@@ -218,12 +216,8 @@ class FileScanner:
         album_id = self.db.cursor.fetchone()
 
         if album_id is None:
-            logging.info(f"Inserting album {name}")
+            logger.info(f"Inserting album {name}")
             self.db.cursor.execute("INSERT INTO albums (name, artist_id) VALUES (?, ?)", (name, artist_id))
             return self.db.cursor.lastrowid
 
         return album_id[0]
-
-
-scanner = FileScanner(os.getenv("LIBRARY_PATH"))
-scanner.scan()

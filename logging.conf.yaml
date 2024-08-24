@@ -1,0 +1,23 @@
+version: 1
+formatters:
+  default:
+    format: '%(asctime)s.%(msecs)03d:%(name)s:%(levelname)s:%(message)s'
+    datefmt: '%Y-%m-%d,%H:%M:%S'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: default
+    stream: ext://sys.stdout
+loggers:
+  scanner:
+    level: INFO
+    handlers: [console]
+    propagate: no
+  db_manager:
+    level: INFO
+    handlers: [console]
+    propagate: no
+root:
+  level: INFO
+  handlers: [console]
