@@ -13,7 +13,6 @@ logger = logging.getLogger('scanner')
 class Directory:
     id: Optional[int]
     path: str
-    mtime: str
 
 @dataclass
 class Track:
@@ -72,8 +71,7 @@ class FileScanner:
                 self.deleted_directories.append(directory)
                 continue
 
-        mtime = int(os.path.getmtime(self.library_path))
-        library_directory = Directory(None, self.library_path, mtime)
+        library_directory = Directory(None, self.library_path)
         self._scan_directory(library_directory)
             
         self._delete_stale_tracks()
@@ -95,18 +93,19 @@ class FileScanner:
 
         for filename in files_on_disk:
             filepath = os.path.join(directory.path, filename)
-            mtime = int(os.path.getmtime(filepath))
 
             if os.path.isdir(filepath):
-                new_directory = Directory(None, filepath, mtime)
+                new_directory = Directory(None, filepath)
                 if filepath in self.cached_dirs:
                     new_directory = self.cached_dirs[filepath]
                 self._scan_directory(new_directory)
 
             if os.path.isfile(filepath):
                 cached_track = next((t for t in cached_files if t.filename == filename), None)
+                mtime = int(os.path.getmtime(filepath))
                 if cached_track and cached_track.mtime == mtime:
                     # Cached and up-to-date
+                    has_audio = True
                     continue
 
                 logger.info(f"Scanning track {filepath}")
@@ -168,8 +167,8 @@ class FileScanner:
     def _commit_directories(self):
         for directory in self.new_directories:
             logger.info(f"Inserting directory {directory.path}")
-            query = "INSERT INTO directories (path, mtime) VALUES (?, ?)" 
-            self.db.cursor.execute(query, (directory.path, directory.mtime))
+            query = "INSERT INTO directories (path) VALUES (?)" 
+            self.db.cursor.execute(query, (directory.path, ))
         self.new_directories.clear()
 
     def _commit_tracks(self):
