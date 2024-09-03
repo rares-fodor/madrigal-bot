@@ -4,7 +4,8 @@ import logging.config
 from os import getenv
 from dotenv import load_dotenv
 from yaml import safe_load
-from scanner import FileScanner
+
+from .scanner import FileScanner
 
 load_dotenv()
 
@@ -24,7 +25,7 @@ def setup_logging(config_path: str):
 
 def main():
     setup_logging('logging.conf.yaml')
-    scanner = FileScanner(getenv('LIBRARY_PATH'))
+    scanner = FileScanner(library_path=getenv('LIBRARY_PATH'), db_path="db/tracks.sqlite")
     scanner.scan()
     
 if __name__ == '__main__':

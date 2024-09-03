@@ -35,3 +35,9 @@ class DatabaseManager:
         if self.connection:
             self.connection.close()
             logger.info(f"Closed connection to db {self.filename}")
+
+    def count_rows(self, table):
+        if not self.connection:
+            self.connect()
+        self.cursor.execute("SELECT * FROM {0}".format(table))
+        return len(self.cursor.fetchall())

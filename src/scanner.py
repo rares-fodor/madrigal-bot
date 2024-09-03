@@ -3,8 +3,9 @@ import mutagen
 import logging
 
 from dataclasses import dataclass
-from db_manager import DatabaseManager
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
+
+from .db_manager import DatabaseManager
 
 logger = logging.getLogger('scanner')
 
@@ -43,16 +44,16 @@ class MetadataManager:
         title = audio.get('title', [filename])[0]
         artist = audio.get('artist', ['Unknown Artist'])[0]
         albumartist = audio.get('albumartist', [artist])[0]
-        album = audio.get('album', 'Unknown Album')[0]
+        album = audio.get('album', ['Unknown Album'])[0]
 
         return TrackMetadata(title, artist, album, albumartist)
 
 
 class FileScanner:
-    def __init__(self, library_path: str) -> None:
-        self.db = DatabaseManager('db/tracks.sqlite')
+    def __init__(self, library_path: str, db_path) -> None:
+        self.db = DatabaseManager(db_path)
         self.library_path = library_path
-        self.cached_dir_paths = []
+        self.cached_dirs: Dict[str, Directory] = {}
         self.new_directories: List[Directory] = []
         self.new_tracks: List[Tuple[str, TrackMetadata]] = []
         self.updated_tracks: List[Tuple[str, TrackMetadata]] = []
@@ -64,45 +65,43 @@ class FileScanner:
     def scan(self):
         self.db.cursor.execute("SELECT * FROM directories")
         cached_directories = [Directory(*row) for row in self.db.cursor.fetchall()]
+        self.cached_dirs = {dir.path: dir for dir in cached_directories}
 
-        if not cached_directories:
-            mtime = int(os.path.getmtime(self.library_path))
-            library_directory = Directory(None, self.library_path, mtime)
-            self.new_directories.append(library_directory)
-            self.scan_directory(library_directory)
-        else:
-            self.cached_dir_paths = [d.path for d in cached_directories]
-            for directory in cached_directories:
-                if not os.path.isdir(directory.path):
-                    self.deleted_directories.append(directory)
-                    continue
-                self.scan_directory(directory)
+        for directory in self.cached_dirs.values():
+            if not os.path.isdir(directory.path):
+                self.deleted_directories.append(directory)
+                continue
+
+        mtime = int(os.path.getmtime(self.library_path))
+        library_directory = Directory(None, self.library_path, mtime)
+        self._scan_directory(library_directory)
             
-        self.delete_stale_tracks()
-        self.delete_stale_directories()
+        self._delete_stale_tracks()
+        self._delete_stale_directories()
 
-        self.commit_directories()
-        self.commit_tracks()
+        self._commit_directories()
+        self._commit_tracks()
 
         # Commit transaction
         self.db.connection.commit()
 
-    def scan_directory(self, directory: Directory):
+    def _scan_directory(self, directory: Directory):
         logger.info(f"Scanning directory {directory.path}")
 
         self.db.cursor.execute("SELECT * FROM tracks WHERE dir_id = ?", (directory.id,))
         cached_files = [Track(*row) for row in self.db.cursor.fetchall()]
         files_on_disk = os.listdir(directory.path)
+        has_audio = False
 
         for filename in files_on_disk:
             filepath = os.path.join(directory.path, filename)
             mtime = int(os.path.getmtime(filepath))
 
             if os.path.isdir(filepath):
-                if filepath not in self.cached_dir_paths:
-                    new_directory = Directory(None, filepath, mtime)
-                    self.new_directories.append(new_directory)
-                    self.scan_directory(new_directory)
+                new_directory = Directory(None, filepath, mtime)
+                if filepath in self.cached_dirs:
+                    new_directory = self.cached_dirs[filepath]
+                self._scan_directory(new_directory)
 
             if os.path.isfile(filepath):
                 cached_track = next((t for t in cached_files if t.filename == filename), None)
@@ -114,6 +113,8 @@ class FileScanner:
                 metadata = MetadataManager().get_metadata(filepath)
                 if not metadata:
                     continue
+
+                has_audio = True
                 
                 if cached_track:
                     # Track exists in db but has changed on disk
@@ -121,14 +122,24 @@ class FileScanner:
                 else:
                     # Track is not in db
                     self.new_tracks.append((filepath, metadata))
-                
+
+        if has_audio:
+            if directory.path not in self.cached_dirs:
+                # New directory with audio
+                self.new_directories.append(directory)
+        elif directory.path in self.cached_dirs:
+            # Directory no longer has audio in it, untrack
+            self.deleted_directories.append(directory)
+
     
-    def delete_stale_directories(self):
+    def _delete_stale_directories(self):
         for dir in self.deleted_directories:
             logger.info(f"Deleting directory {dir.path}")
-            self.db.cursor.execute("DELETE FROM directories WHERE dir_id = ?", (dir.id,))
+            self.db.cursor.execute("DELETE FROM directories WHERE path = ?", (dir.path,))
+        
+        self.deleted_directories.clear()
     
-    def delete_stale_tracks(self):
+    def _delete_stale_tracks(self):
         self.db.cursor.execute("""
             SELECT directories.path || '/' || tracks.filename AS path
             FROM tracks
@@ -143,25 +154,25 @@ class FileScanner:
                 continue
             
             logger.info(f"Deleting track {path}")
-            deleted_tracks.append(os.path.dirname(path))
+            deleted_tracks.append(os.path.basename(path))
 
         placeholders = ', '.join('?' for _ in deleted_tracks)
         query = f"DELETE FROM tracks WHERE filename IN ({placeholders})"
         self.db.cursor.execute(query, deleted_tracks)
 
-
-    def commit(self):
-        self.commit_directories()
-        self.commit_tracks()
+    def _commit(self):
+        self._commit_directories()
+        self._commit_tracks()
         self.db.connection.commit()
 
-    def commit_directories(self):
+    def _commit_directories(self):
         for directory in self.new_directories:
             logger.info(f"Inserting directory {directory.path}")
             query = "INSERT INTO directories (path, mtime) VALUES (?, ?)" 
             self.db.cursor.execute(query, (directory.path, directory.mtime))
+        self.new_directories.clear()
 
-    def commit_tracks(self):
+    def _commit_tracks(self):
         self.db.cursor.execute("SELECT dir_id, path FROM directories")
         directories = {path: dir_id for dir_id, path in self.db.cursor.fetchall()}
 
@@ -170,9 +181,9 @@ class FileScanner:
             dir_path = os.path.dirname(track[0])
             mtime = int(os.path.getmtime(track[0]))
 
-            artist_id = self.get_or_insert_artist(track[1].artist)
-            albumartist_id = self.get_or_insert_artist(track[1].albumartist)
-            album_id = self.get_or_insert_album(track[1].album, albumartist_id)
+            artist_id = self._get_or_insert_artist(track[1].artist)
+            albumartist_id = self._get_or_insert_artist(track[1].albumartist)
+            album_id = self._get_or_insert_album(track[1].album, albumartist_id)
             dir_id = directories.get(dir_path)
 
             logger.info(f"Inserting track {filename}")
@@ -185,9 +196,9 @@ class FileScanner:
         
         for track in self.updated_tracks:
             title = track[1].title
-            artist_id = self.get_or_insert_artist(track[1].artist)
-            albumartist_id = self.get_or_insert_artist(track[1].albumartist)
-            album_id = self.get_or_insert_album(track[1].album, albumartist_id)
+            artist_id = self._get_or_insert_artist(track[1].artist)
+            albumartist_id = self._get_or_insert_artist(track[1].albumartist)
+            album_id = self._get_or_insert_album(track[1].album, albumartist_id)
             mtime = int(os.path.getmtime(track[0]))
             filename = os.path.basename(track[0])
 
@@ -199,8 +210,11 @@ class FileScanner:
                 WHERE filename = ?
             """
             self.db.cursor.execute(query, (title, artist_id, album_id, mtime, filename))
+        
+        self.new_tracks.clear()
+        self.updated_tracks.clear()
 
-    def get_or_insert_artist(self, name: str):
+    def _get_or_insert_artist(self, name: str):
         self.db.cursor.execute("SELECT artist_id FROM artists WHERE name = ?", (name, ))
         artist_id = self.db.cursor.fetchone()
 
@@ -211,7 +225,7 @@ class FileScanner:
 
         return artist_id[0]
 
-    def get_or_insert_album(self, name: str, artist_id: int):
+    def _get_or_insert_album(self, name: str, artist_id: int):
         self.db.cursor.execute("SELECT album_id FROM albums WHERE name = ? AND artist_id = ?", (name, artist_id))
         album_id = self.db.cursor.fetchone()
 
