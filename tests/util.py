@@ -189,3 +189,31 @@ class LibraryManager:
             filename = os.path.basename(path)
             new_path = os.path.join(target_dir, filename)
             shutil.move(path, new_path)
+    
+    def rm_album(self, album_index):
+        paths = self.albums[album_index]
+        self.albums.pop(album_index)
+        self.album_index -= 1
+        for path in paths:
+            os.remove(path)
+        
+    def rename_track(self, path):
+        """
+        Rename the first track in album
+        """
+        new_path = f"{path}_renamed"
+        shutil.move(path, new_path)
+        return new_path
+
+    def change_track_metadata(self, path):
+        """
+        Update the metadata of the first track in album.
+        Returns the path to the updated track
+        """
+        audio = MP3(path, ID3=EasyID3)
+        audio["title"] = "new_title"
+        audio.save()
+        return path
+
+    def get_tracks_in_album(self, album_index):
+        return self.albums[album_index]
