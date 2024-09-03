@@ -6,6 +6,8 @@ from src.scanner import FileScanner
 from src.scanner import Track
 from src.scanner import Directory
 
+_DB_PATH = './tests/test_db.sqlite'
+
 @pytest.fixture(scope="function")
 def get_library_manager():
     dm = DirManager(p_dir=0.3, depth=(2,4), branch=(1,4))
@@ -14,10 +16,10 @@ def get_library_manager():
 
 @pytest.fixture(scope="function")
 def get_scanner():
-    if os.path.exists('./test_db.sqlite'):
-        os.remove('./test_db.sqlite')
+    if os.path.exists(_DB_PATH):
+        os.remove(_DB_PATH)
 
-    return FileScanner(library_path="./tests/tree", db_path="./test_db.sqlite")
+    return FileScanner(library_path="./tests/tree", db_path=_DB_PATH)
 
 
 def test_directory_tracking(get_library_manager, get_scanner):
