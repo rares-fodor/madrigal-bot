@@ -7,7 +7,6 @@ from typing import List
 from pydub import AudioSegment
 from mutagen.mp3 import MP3
 from mutagen.easyid3 import EasyID3
-from src.scanner import FileScanner
 
 
 class DirTree(object):

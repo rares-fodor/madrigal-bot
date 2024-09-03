@@ -5,7 +5,7 @@ from os import getenv
 from dotenv import load_dotenv
 from yaml import safe_load
 
-from .scanner import FileScanner
+from src.scanner import FileScanner
 
 load_dotenv()
 
