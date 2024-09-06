@@ -47,8 +47,8 @@ class MetadataManager:
 
 
 class FileScanner:
-    def __init__(self, library_path: str, db_path) -> None:
-        self.db = DatabaseManager(db_path)
+    def __init__(self, library_path: str, db: DatabaseManager) -> None:
+        self.db = db
         self.library_path = library_path
         self.cached_dirs: Dict[str, Directory] = {}
         self.new_directories: List[Directory] = []

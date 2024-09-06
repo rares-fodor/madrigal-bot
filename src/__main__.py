@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from yaml import safe_load
 
 from src.scanner import FileScanner
-from src.bot import client
+from src.db_manager import DatabaseManager
+from src.bot import Bot
 
 load_dotenv()
 
@@ -26,9 +27,13 @@ def setup_logging(config_path: str):
 
 def main():
     setup_logging('logging.conf.yaml')
-    scanner = FileScanner(library_path=getenv('LIBRARY_PATH'), db_path="db/tracks.sqlite")
+    db = DatabaseManager("db/tracks.sqlite")
+
+    scanner = FileScanner(library_path=getenv('LIBRARY_PATH'), db=db)
     scanner.scan()
-    client.run(token=getenv("TOKEN"), log_handler=None)
+
+    bot = Bot(db=db) 
+    bot.client.run(token=getenv("TOKEN"), log_handler=None)
     
 if __name__ == '__main__':
     main()
