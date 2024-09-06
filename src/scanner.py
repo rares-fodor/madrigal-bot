@@ -7,8 +7,6 @@ from typing import Optional, List, Tuple, Dict
 
 from .db_manager import DatabaseManager
 
-logger = logging.getLogger('scanner')
-
 @dataclass
 class Directory:
     id: Optional[int]
@@ -57,6 +55,7 @@ class FileScanner:
         self.new_tracks: List[Tuple[str, TrackMetadata]] = []
         self.updated_tracks: List[Tuple[str, TrackMetadata]] = []
         self.deleted_directories: List[Directory] = []
+        self.__logger = logging.getLogger('scanner')
 
         # Initialize database schema
         self.db.executescript('db/schema.sql')
@@ -84,7 +83,7 @@ class FileScanner:
         self.db.connection.commit()
 
     def _scan_directory(self, directory: Directory):
-        logger.info(f"Scanning directory {directory.path}")
+        self.__logger.info(f"Scanning directory {directory.path}")
 
         self.db.cursor.execute("SELECT * FROM tracks WHERE dir_id = ?", (directory.id,))
         cached_files = [Track(*row) for row in self.db.cursor.fetchall()]
@@ -108,7 +107,7 @@ class FileScanner:
                     has_audio = True
                     continue
 
-                logger.info(f"Scanning track {filepath}")
+                self.__logger.info(f"Scanning track {filepath}")
                 metadata = MetadataManager().get_metadata(filepath)
                 if not metadata:
                     continue
@@ -133,7 +132,7 @@ class FileScanner:
     
     def _delete_stale_directories(self):
         for dir in self.deleted_directories:
-            logger.info(f"Deleting directory {dir.path}")
+            self.__logger.info(f"Deleting directory {dir.path}")
             self.db.cursor.execute("DELETE FROM directories WHERE path = ?", (dir.path,))
         
         self.deleted_directories.clear()
@@ -152,7 +151,7 @@ class FileScanner:
             if os.path.isfile(path):
                 continue
             
-            logger.info(f"Deleting track {path}")
+            self.__logger.info(f"Deleting track {path}")
             deleted_tracks.append(os.path.basename(path))
 
         placeholders = ', '.join('?' for _ in deleted_tracks)
@@ -166,7 +165,7 @@ class FileScanner:
 
     def _commit_directories(self):
         for directory in self.new_directories:
-            logger.info(f"Inserting directory {directory.path}")
+            self.__logger.info(f"Inserting directory {directory.path}")
             query = "INSERT INTO directories (path) VALUES (?)" 
             self.db.cursor.execute(query, (directory.path, ))
         self.new_directories.clear()
@@ -185,7 +184,7 @@ class FileScanner:
             album_id = self._get_or_insert_album(track[1].album, albumartist_id)
             dir_id = directories.get(dir_path)
 
-            logger.info(f"Inserting track {filename}")
+            self.__logger.info(f"Inserting track {filename}")
 
             query = """
                 INSERT INTO tracks (title, artist_id, album_id, dir_id, filename, mtime)
@@ -201,7 +200,7 @@ class FileScanner:
             mtime = int(os.path.getmtime(track[0]))
             filename = os.path.basename(track[0])
 
-            logger.info(f"Updating track {filename}")
+            self.__logger.info(f"Updating track {filename}")
 
             query = """
                 UPDATE tracks
@@ -218,7 +217,7 @@ class FileScanner:
         artist_id = self.db.cursor.fetchone()
 
         if artist_id is None:
-            logger.info(f"Inserting artist {name}")
+            self.__logger.info(f"Inserting artist {name}")
             self.db.cursor.execute("INSERT INTO artists (name) VALUES (?)", (name, ))
             return self.db.cursor.lastrowid
 
@@ -229,7 +228,7 @@ class FileScanner:
         album_id = self.db.cursor.fetchone()
 
         if album_id is None:
-            logger.info(f"Inserting album {name}")
+            self.__logger.info(f"Inserting album {name}")
             self.db.cursor.execute("INSERT INTO albums (name, artist_id) VALUES (?, ?)", (name, artist_id))
             return self.db.cursor.lastrowid
 
