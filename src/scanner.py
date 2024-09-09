@@ -3,31 +3,10 @@ import mutagen
 import logging
 
 from dataclasses import dataclass
-from typing import Optional, List, Tuple, Dict
+from typing import List, Tuple, Dict
 
-from .db_manager import DatabaseManager
-
-@dataclass
-class Directory:
-    id: Optional[int]
-    path: str
-
-@dataclass
-class Track:
-    id: Optional[str]
-    title: str
-    artist_id: int
-    album_id: int
-    dir_id: int
-    filename: int
-    mtime: int
-
-@dataclass
-class TrackMetadata:
-    title: str
-    artist: str
-    album: str
-    albumartist: str
+from src.db_manager import DatabaseManager
+from src.models import TrackMetadata, DirectoryRow, TrackRow
 
 class MetadataManager:
     @staticmethod
@@ -50,11 +29,11 @@ class FileScanner:
     def __init__(self, library_path: str, db: DatabaseManager) -> None:
         self.db = db
         self.library_path = library_path
-        self.cached_dirs: Dict[str, Directory] = {}
-        self.new_directories: List[Directory] = []
+        self.cached_dirs: Dict[str, DirectoryRow] = {}
+        self.new_directories: List[DirectoryRow] = []
         self.new_tracks: List[Tuple[str, TrackMetadata]] = []
         self.updated_tracks: List[Tuple[str, TrackMetadata]] = []
-        self.deleted_directories: List[Directory] = []
+        self.deleted_directories: List[DirectoryRow] = []
         self.__logger = logging.getLogger('scanner')
 
         # Initialize database schema
@@ -62,7 +41,7 @@ class FileScanner:
     
     def scan(self):
         self.db.cursor.execute("SELECT * FROM directories")
-        cached_directories = [Directory(*row) for row in self.db.cursor.fetchall()]
+        cached_directories = [DirectoryRow(*row) for row in self.db.cursor.fetchall()]
         self.cached_dirs = {dir.path: dir for dir in cached_directories}
 
         for directory in self.cached_dirs.values():
@@ -70,7 +49,7 @@ class FileScanner:
                 self.deleted_directories.append(directory)
                 continue
 
-        library_directory = Directory(None, self.library_path)
+        library_directory = DirectoryRow(None, self.library_path)
         self._scan_directory(library_directory)
             
         self._delete_stale_tracks()
@@ -82,11 +61,11 @@ class FileScanner:
         # Commit transaction
         self.db.connection.commit()
 
-    def _scan_directory(self, directory: Directory):
+    def _scan_directory(self, directory: DirectoryRow):
         self.__logger.info(f"Scanning directory {directory.path}")
 
         self.db.cursor.execute("SELECT * FROM tracks WHERE dir_id = ?", (directory.id,))
-        cached_files = [Track(*row) for row in self.db.cursor.fetchall()]
+        cached_files = [TrackRow(*row) for row in self.db.cursor.fetchall()]
         files_on_disk = os.listdir(directory.path)
         has_audio = False
 
@@ -94,7 +73,7 @@ class FileScanner:
             filepath = os.path.join(directory.path, filename)
 
             if os.path.isdir(filepath):
-                new_directory = Directory(None, filepath)
+                new_directory = DirectoryRow(None, filepath)
                 if filepath in self.cached_dirs:
                     new_directory = self.cached_dirs[filepath]
                 self._scan_directory(new_directory)

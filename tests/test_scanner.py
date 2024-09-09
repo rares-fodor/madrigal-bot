@@ -3,8 +3,8 @@ import os
 import random
 from tests.util import DirManager, LibraryManager
 from src.scanner import FileScanner
-from src.scanner import Track
-from src.scanner import Directory
+from src.scanner import TrackRow
+from src.scanner import DirectoryRow
 
 _DB_PATH = './tests/test_db.sqlite'
 
@@ -58,9 +58,9 @@ def test_correct_mtime(get_library_manager, get_scanner):
     get_scanner.scan()
 
     get_scanner.db.cursor.execute("SELECT * FROM tracks")
-    cached_tracks = [Track(*row) for row in get_scanner.db.cursor.fetchall()]
+    cached_tracks = [TrackRow(*row) for row in get_scanner.db.cursor.fetchall()]
     get_scanner.db.cursor.execute("SELECT * FROM directories")
-    cached_dirs = [Directory(*row) for row in get_scanner.db.cursor.fetchall()]
+    cached_dirs = [DirectoryRow(*row) for row in get_scanner.db.cursor.fetchall()]
 
     for track in cached_tracks:
         parent_dir = next((d for d in cached_dirs if d.id == track.dir_id), None)
@@ -131,13 +131,13 @@ def test_rename_file(get_library_manager, get_scanner):
     get_scanner.scan()
 
     get_scanner.db.cursor.execute("SELECT * FROM directories WHERE path = ?", (p_dir, ))
-    directory = [Directory(*row) for row in get_scanner.db.cursor.fetchall()][0]
+    directory = [DirectoryRow(*row) for row in get_scanner.db.cursor.fetchall()][0]
 
     get_scanner.db.cursor.execute("SELECT * FROM tracks WHERE filename = ? AND dir_id = ?", (prev_filename, directory.id))
     assert get_scanner.db.cursor.fetchall().__len__() == 0
 
     get_scanner.db.cursor.execute("SELECT * FROM tracks WHERE filename = ? AND dir_id = ?", (new_filename, directory.id))
-    new_track = [Track(*row) for row in get_scanner.db.cursor.fetchall()][0]
+    new_track = [TrackRow(*row) for row in get_scanner.db.cursor.fetchall()][0]
 
     # New mtime is correct
     assert new_track.mtime == int(os.path.getmtime(new_path))
