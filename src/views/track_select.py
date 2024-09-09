@@ -6,18 +6,20 @@ from src.models import Track
 TrackSelectionCallback = Callable[[Track, discord.Interaction], None]
 
 class TrackResultsView(discord.ui.View):
-    def __init__(self, results: List[Track], on_track_selected: TrackSelectionCallback):
+    def __init__(self, results: List[Track], on_select: TrackSelectionCallback):
         super().__init__()
-        self.on_track_selected = on_track_selected
+        self.on_select = on_select
         self.results = results
         self.page = 0
         self.results_per_page = 5
         self.max_page = (len(results) - 1) // self.results_per_page
+        self.original_response: discord.InteractionMessage = None
 
         self.set_buttons()
 
     async def display(self, interaction: discord.Interaction):
         await interaction.response.send_message(embed=self.create_embed(), view=self)
+        self.original_response = await interaction.original_response()
 
     def set_buttons(self):
         self.clear_items()
@@ -25,7 +27,7 @@ class TrackResultsView(discord.ui.View):
         start_index = self.page * self.results_per_page
         end_index = min(start_index + self.results_per_page, len(self.results))
         for i in range(start_index, end_index):
-            self.add_item(TrackSelectionButton(i, self.results[i], self.on_track_selected))
+            self.add_item(TrackSelectionButton(i, self.results[i], self.on_select))
 
         if self.max_page == 0:
             return
@@ -75,6 +77,8 @@ class TrackSelectionButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         await self.on_select(self.track, interaction)
+        view: TrackResultsView = self.view
+        await view.original_response.edit(view=None, embed=onSelectEmbed(self.track))
 
 
 class PreviousPageButton(discord.ui.Button):
@@ -95,3 +99,15 @@ class NextPageButton(discord.ui.Button):
         view: TrackResultsView = self.view
         view.page += 1
         await view.update_view(interaction)
+
+
+def onSelectEmbed(track: Track):
+    embed = discord.Embed(
+        color=discord.Color.yellow(),
+        title="Track selected"
+    )
+    embed.add_field(
+        name=f"{track.artist} - {track.title}",
+        value=track.album
+    )
+    return embed

@@ -30,7 +30,7 @@ class Bot:
             if len(results) == 1:
                 await self.play_selected_track(results[0], interaction)
             elif len(results) > 1:
-                view = TrackResultsView(results=results, on_track_selected=self.play_selected_track)
+                view = TrackResultsView(results=results, on_select=self.play_selected_track)
                 await view.display(interaction=interaction)
             else:
                 await interaction.response.send_message("No results found :(")
