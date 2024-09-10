@@ -3,6 +3,7 @@ from typing import Optional
 
 @dataclass
 class Track:
+    id: int
     title: str
     artist: str
     album: str
