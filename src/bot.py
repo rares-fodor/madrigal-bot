@@ -1,6 +1,8 @@
 import discord
 import logging
 
+from typing import Dict
+
 from src.db_manager import DatabaseManager
 from src.views.track_select import TrackResultsView
 from src.models import Track
@@ -11,8 +13,10 @@ class Bot:
         self.db = db
         self.client = discord.Client(intents=intents)
         self.tree = discord.app_commands.CommandTree(client=self.client)
-        self.players = Player(client=self.client)
+        self.players: Dict[discord.Guild, Player] = {}
         self.__logger = logging.getLogger("bot")
+
+        self._register_commands()
 
         self.client.event(self.on_ready)
 
@@ -79,7 +83,13 @@ class Bot:
         path = self._get_path_for_track_id(track.id)
         self.__logger.info(f"Found path {path}")
         
-        await self.player.queue_track(interaction, path, track)
+        player = self.players.get(interaction.guild)
+        if not player:
+            self.__logger.error(f"Player instance not found for {interaction.guild}")
+            return
+
+        await interaction.response.send_message(f"🎶 Playing {track.artist} - {track.title} ({track.album}) 🎶")
+        await player.queue_track(path, track)
         pass
 
     def _get_path_for_track_id(self, id: int):

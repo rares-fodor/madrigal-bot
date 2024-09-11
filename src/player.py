@@ -5,16 +5,15 @@ from src.models import Track
 discord.opus.load_opus("libopus.so")
 
 class Player:
-    def __init__(self, client: discord.Client) -> None:
+    def __init__(self, voice_client: discord.VoiceClient) -> None:
         self.queue = []
         self.now_playing = None
-        self.client = client
+        self.voice_client: discord.VoiceClient = voice_client
         pass
 
-    async def queue_track(self, interaction: discord.Interaction, path: str, track: Track):
+    async def queue_track(self, path: str, track: Track):
         audio_source = discord.FFmpegPCMAudio(source=path, executable="ffmpeg")
-        voice_client = discord.utils.get(self.client.voice_clients, guild=interaction.guild)
-        voice_client.play(audio_source)
+        self.voice_client.play(audio_source)
 
     def remove_track(self, index: int):
         pass
