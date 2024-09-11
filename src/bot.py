@@ -47,9 +47,9 @@ class Bot:
             # Go through with finding the track
             results = self.find_tracks_on_disk(query)
             if len(results) == 1:
-                await self.play_selected_track(results[0], interaction)
+                await self._play_selected_track(results[0], interaction)
             elif len(results) > 1:
-                view = TrackResultsView(results=results, on_select=self.play_selected_track)
+                view = TrackResultsView(results=results, on_select=self._play_selected_track)
                 await view.display(interaction=interaction)
             else:
                 await interaction.response.send_message("No results found :(")
@@ -76,8 +76,7 @@ class Bot:
 
         return results
 
-    async def play_selected_track(self, track: Track, interaction: discord.Interaction):
-        await interaction.response.send_message(f"🎶 Playing {track.artist} - {track.title} ({track.album}) 🎶")
+    async def _play_selected_track(self, track: Track, interaction: discord.Interaction):
         self.__logger.info(f"Selected {track}")
 
         path = self._get_path_for_track_id(track.id)
