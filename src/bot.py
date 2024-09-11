@@ -71,6 +71,14 @@ class Bot:
             player = self.players.get(interaction.guild)
             await player.pause(interaction)
 
+        @self.tree.command(
+            name="resume",
+            description="Resume playback"
+        )
+        async def resume_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            await player.resume(interaction)
+
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.

@@ -35,5 +35,12 @@ class Player:
         else:
             await interaction.response.send_message("Player is already paused :)")
 
+    async def resume(self, interaction: discord.Interaction):
+        if self.voice_client.is_paused():
+            self.voice_client.resume()
+            await interaction.response.send_message("▶ Resuming playback")
+        else:
+            await interaction.response.send_message("Player is not paused :)") 
+
     def skip(self):
         pass
