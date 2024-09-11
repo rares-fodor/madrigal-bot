@@ -32,19 +32,8 @@ class Bot:
             description="Play a song from your local library",
         )
         async def play_command(interaction: discord.Interaction, query: str):
-            # Test whether issuer is connected to a voice channel or if the bot is already connected
-            voice_client = discord.utils.get(self.client.voice_clients, guild=interaction.guild)
-            user = interaction.guild.get_member(interaction.user.id)
+            await self._ensure_connection(interaction=interaction)
 
-            if not voice_client:
-                if not user or not user.voice:
-                    response_content = "You are not connected to a voice channel! Please issue this command after connecting to one"
-                    await interaction.response.send_message(response_content)
-                    return
-                else:
-                    await user.voice.channel.connect()
-
-            # Go through with finding the track
             results = self.find_tracks_on_disk(query)
             if len(results) == 1:
                 await self._play_selected_track(results[0], interaction)
@@ -107,3 +96,26 @@ class Bot:
         if path:
             return path[0]
         return None
+
+    async def _ensure_connection(self, interaction: discord.Interaction) -> None:
+        """
+        Ensure that the bot is connected to a voice channel.
+        If the bot is already connected it will continue using that connection.
+        If not connected, attempts to connect to the issuer's voice channel if they are connected to one.
+        """
+        voice_client = discord.utils.get(self.client.voice_clients, guild=interaction.guild)
+        user = interaction.guild.get_member(interaction.user.id)
+
+        # If the bot is already connected to a voice channel, we don't need to reconnect
+        if voice_client and voice_client.is_connected():
+            return
+        
+        # If neither the bot, nor the issuer are connected to a voice channel we do not connect
+        if not user or not user.voice:
+            response_content = "You are not connected to a voice channel. Please connect to one before issuing this command."
+            await interaction.response.send_message(content=response_content)
+            return
+        
+        self.__logger.info(f"Bot connecting to {user.voice.channel} in guild {interaction.guild.name}")
+        voice_client = await user.voice.channel.connect()
+        self.players[interaction.guild] = Player(voice_client=voice_client)
