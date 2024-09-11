@@ -1,5 +1,7 @@
 import discord
 import logging
+import atexit
+import asyncio
 
 from typing import Dict
 
@@ -20,11 +22,19 @@ class Bot:
 
         self.client.event(self.on_ready)
 
-        self._register_commands()
+        atexit.register(self._sync_on_exit)
 
     async def on_ready(self):
         await self.tree.sync()
         self.__logger.info("Bot is ready")
+
+    async def _on_exit(self):
+        self.__logger.info("Program exitting, closing connection to discord...")
+        await self.client.close()
+
+    def _sync_on_exit(self):
+        self.__logger.info("Running atexit cleanup")
+        asyncio.run(self._on_exit())
 
     def _register_commands(self):
         @self.tree.command(
