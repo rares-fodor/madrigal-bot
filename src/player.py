@@ -28,5 +28,12 @@ class Player:
         self.clear()
         self.voice_client.stop()
 
+    async def pause(self, interaction: discord.Interaction):
+        if self.voice_client.is_playing():
+            self.voice_client.pause()
+            await interaction.response.send_message("⏸ Paused playback")
+        else:
+            await interaction.response.send_message("Player is already paused :)")
+
     def skip(self):
         pass

@@ -63,6 +63,14 @@ class Bot:
             await interaction.response.send_message(f"Thanks for listening! 💤")
             await player.voice_client.disconnect()
 
+        @self.tree.command(
+            name="pause",
+            description="Pause playback"
+        )
+        async def pause_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            await player.pause(interaction)
+
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.
