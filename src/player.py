@@ -21,11 +21,12 @@ class Player:
     def clear(self):
         pass
 
-    def pause(self):
-        pass
-
-    def resume(self):
-        pass
+    def stop(self):
+        """
+        Clear playlist and stop playback
+        """
+        self.clear()
+        self.voice_client.stop()
 
     def skip(self):
         pass

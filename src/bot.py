@@ -58,10 +58,10 @@ class Bot:
             description="Clear playlist and disconnect from voice channel"
         )
         async def stop_command(interaction: discord.Interaction):
-            # TODO, also clear the playlist
-            voice_client = discord.utils.get(self.client.voice_clients, guild=interaction.guild)
-            await voice_client.disconnect()
-            await interaction.response.send_message(f"Cleared playlist, thanks for listening! 💤")
+            player = self.players.get(interaction.guild)
+            player.stop()
+            await interaction.response.send_message(f"Thanks for listening! 💤")
+            await player.voice_client.disconnect()
 
     def find_tracks_on_disk(self, query: str):
         """
