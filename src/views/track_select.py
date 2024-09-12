@@ -18,7 +18,7 @@ class TrackResultsView(discord.ui.View):
         self.set_buttons()
 
     async def display(self, interaction: discord.Interaction):
-        await interaction.response.send_message(embed=self.create_embed(), view=self)
+        await interaction.response.send_message(embed=self.create_embed(), view=self, ephemeral=True)
         self.original_response = await interaction.original_response()
 
     def set_buttons(self):
