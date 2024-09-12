@@ -102,6 +102,7 @@ class Bot:
             self.__logger.error(f"Player instance not found for {interaction.guild}")
             return
 
+        await interaction.response.send_message(f"🎶 Playing {track.artist} - {track.title} ({track.album}) 🎶", ephemeral=True)
         await player.queue_track(path, track)
         pass
 
