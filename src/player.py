@@ -34,7 +34,10 @@ class Player:
         pass
 
     def clear(self):
-        pass
+        """
+        Clear playlist. If a track is playing it will not be removed or stopped
+        """
+        self.queue.clear()
 
     def stop(self):
         """

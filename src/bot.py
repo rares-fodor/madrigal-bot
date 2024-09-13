@@ -79,6 +79,15 @@ class Bot:
             player = self.players.get(interaction.guild)
             await player.resume(interaction)
 
+        @self.tree.command(
+            name="clear",
+            description="Clear the playlist"
+        )
+        async def clear_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            await interaction.response.send_message(f"Clearing playlist... 🌾")
+            player.clear()
+
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.
