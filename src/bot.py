@@ -10,6 +10,7 @@ from src.views.track_select import TrackResultsView
 from src.views.now_playing import NowPlayingView
 from src.models import Track
 from src.player import Player
+from src.consts import NOT_PLAYING
 
 class Bot:
     def __init__(self, db: DatabaseManager, intents=discord.Intents.default()) -> None:
@@ -52,7 +53,7 @@ class Bot:
                 view = TrackResultsView(results=results, on_select=self._queue_selected_track)
                 await view.display(interaction=interaction)
             else:
-                await interaction.response.send_message("No results found :(")
+                await interaction.response.send_message("No results found :(", ephemeral=True)
 
         @self.tree.command(
             name="stop",
@@ -60,9 +61,10 @@ class Bot:
         )
         async def stop_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
-            player.stop()
-            await interaction.response.send_message(f"Thanks for listening! 💤")
-            await player.voice_client.disconnect()
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+            await player.disconnect(interaction)
 
         @self.tree.command(
             name="pause",
@@ -70,6 +72,9 @@ class Bot:
         )
         async def pause_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
             await player.pause(interaction)
 
         @self.tree.command(
@@ -78,6 +83,9 @@ class Bot:
         )
         async def resume_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
             await player.resume(interaction)
 
         @self.tree.command(
@@ -86,8 +94,10 @@ class Bot:
         )
         async def clear_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
-            await interaction.response.send_message(f"Clearing playlist... 🌾")
-            player.clear()
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+            await player.clear(interaction)
 
         @self.tree.command(
             name="skip",
@@ -95,6 +105,9 @@ class Bot:
         )
         async def skip_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
             await player.skip(interaction)
 
         @self.tree.command(
@@ -104,7 +117,7 @@ class Bot:
         async def now_playing_command(interaction: discord.Interaction):
             player = self.players.get(interaction.guild)
             if not player:
-                await interaction.response.send_message("Nothing is playing.")
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
                 return
             view = NowPlayingView(author=interaction.user, player=player)
             await view.display(interaction)
@@ -134,7 +147,6 @@ class Bot:
 
         await interaction.response.send_message(f"🎶 Queued {track.artist} - {track.title} ({track.album}) 🎶", ephemeral=True)
         await player.queue_track(path, track)
-        pass
 
     def _get_path_for_track_id(self, id: int):
         """

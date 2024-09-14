@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List
 
 from src.models import Track
+from src.consts import NOT_PLAYING
 
 @dataclass
 class NowPlayingTrack:
@@ -61,21 +62,23 @@ class Player:
         
         await self._notify_views()
 
-    def remove_track(self, index: int):
-        pass
-
-    def clear(self):
+    async def clear(self, interaction: discord.Interaction=None):
         """
         Clear playlist. If a track is playing it will not be removed or stopped
         """
-        self.queue.clear()
+        if interaction:
+            await interaction.response.send_message("Clearing playlist... 🌾")
+        await self.queue.clear()
 
-    def stop(self):
+    async def disconnect(self, interaction: discord.Interaction=None):
         """
-        Clear playlist and stop playback
+        Clear playlist, stop playback, clean up messages
         """
-        self.clear()
+        if interaction:
+            await interaction.response.send_message(f"Thanks for listening! 💤")
+        await self.clear()
         self.voice_client.stop()
+        await self.voice_client.disconnect()
 
     def pause_play(self):
         """
@@ -86,23 +89,28 @@ class Player:
         else:
             self.voice_client.pause()
 
-    async def pause(self, interaction: discord.Interaction):
+
+    async def pause(self, interaction: discord.Interaction=None):
         if self.voice_client.is_playing():
             self.voice_client.pause()
-            await interaction.response.send_message("⏸ Paused playback")
-        else:
+            if interaction:
+                await interaction.response.send_message("⏸ Paused playback")
+        elif interaction:
             await interaction.response.send_message("Player is already paused :)")
 
-    async def resume(self, interaction: discord.Interaction):
+    async def resume(self, interaction: discord.Interaction=None):
         if self.voice_client.is_paused():
             self.voice_client.resume()
-            await interaction.response.send_message("▶ Resuming playback")
-        else:
+            if interaction:
+                await interaction.response.send_message("▶ Resuming playback")
+        elif interaction:
             await interaction.response.send_message("Player is not paused :)") 
 
     async def skip(self, interaction: discord.Interaction=None):
-        if self.voice_client.is_playing():
+        if self.voice_client.is_playing() or self.voice_client.is_paused():
+            self.voice_client.stop()
             if interaction:
-                await interaction.response.send_message(f"Skipping {self.now_playing.track.pretty()}", ephemeral=True)
-            self.voice_client.pause()
-            await self._play_next()
+                # Client is playing so we should have a track to print
+                await interaction.response.send_message(f"Skipping {self.get_now_playing_track().pretty()}", ephemeral=True)
+        elif interaction:
+            await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
