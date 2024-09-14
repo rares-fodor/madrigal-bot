@@ -56,7 +56,7 @@ class NowPlayingView(View):
         if track:
             embed.add_field(
                 name=f"Now playing:",
-                value=f"{track.pretty_noalbum()}\n({track.album})",
+                value=f"1. {track.pretty_noalbum()}\n({track.album})",
             )
         if up_next:
             embed.add_field(
@@ -65,17 +65,47 @@ class NowPlayingView(View):
             )
             embed.add_field(
                 name="Up next is:",
-                value=f"{up_next.pretty_noalbum()}\n({up_next.album})",
+                value=f"2. {up_next.pretty_noalbum()}\n({up_next.album})",
             )
         if len(queue) > 1:
-            later_tracks = "\n".join(
-                [f"{i}. {track.pretty_noalbum()} ({track.album})" for i, track in enumerate(queue[1:], 2)]
-            )
-            embed.add_field(
-                name="Later:",
-                value=later_tracks,
-                inline=False
-            )
+            later_tracks = []   # List of strings with multiple tracks each, used in field
+            track_count = 0
+            current_chunk = ""
+            
+            for i, track in enumerate(queue[1:], 3):
+                track_info = f"{i}. {track.pretty_noalbum()} ({track.album})\n"
+                
+                # Account for very large track metadata
+                if track_count >= 5 or len(current_chunk) + len(track_info) > 1024:
+                    later_tracks.append(current_chunk)  # Save the current chunk
+                    current_chunk = track_info          # Start a new chunk
+                    track_count = 1
+                else:
+                    current_chunk += track_info
+                    track_count += 1
+
+            # Append remaining tracks in the last chunk
+            if current_chunk:
+                later_tracks.append(current_chunk)
+
+            # Add fields for each chunk of tracks
+            field_count = 0
+            for index, chunk in enumerate(later_tracks):
+                if field_count >= 25 - 1:  # Leave room for a final "Continued..." field
+                    embed.add_field(
+                        name="Continued...",
+                        value="Queue is too long to display fully.",
+                        inline=True
+                    )
+                    break
+
+                embed.add_field(
+                    name="Later:" if index == 0 else "\u200b",  # Use the title "Later:" only once
+                    value=chunk,
+                )
+
+                field_count += 1
+
         return embed
     
     @discord.ui.button(
