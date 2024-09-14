@@ -97,6 +97,18 @@ class Bot:
             player = self.players.get(interaction.guild)
             await player.skip(interaction)
 
+        @self.tree.command(
+            name="np",
+            description="Show the current playlist"
+        )
+        async def now_playing_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message("Nothing is playing.")
+                return
+            view = NowPlayingView(author=interaction.user, player=player)
+            await view.display(interaction)
+
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.
