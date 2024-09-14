@@ -76,7 +76,7 @@ class NowPlayingView(View):
     )
     async def seek_back(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.redraw(interaction)
-        pass
+        await interaction.response.send_message("Not implemented yet :(")
 
     @discord.ui.button(
         label="⏯",
@@ -92,7 +92,7 @@ class NowPlayingView(View):
     )
     async def seek_forward(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.redraw(interaction)
-        pass
+        await interaction.response.send_message("Not implemented yet :(")
 
     @discord.ui.button(
         label="⏭",
