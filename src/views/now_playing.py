@@ -45,7 +45,7 @@ class NowPlayingView(View):
     def _get_embed(self):
         track = self.player.get_now_playing_track()
         queue = self.player.get_queued_tracks()
-        up_next = queue[0] if queue else None
+        up_next = queue[0] if len(queue) > 0 else None
 
         title = "" if track else "No track playing"
         embed = discord.Embed(
@@ -67,7 +67,15 @@ class NowPlayingView(View):
                 name="Up next is:",
                 value=f"{up_next.pretty_noalbum()}\n({up_next.album})",
             )
-
+        if len(queue) > 1:
+            later_tracks = "\n".join(
+                [f"{i}. {track.pretty_noalbum()} ({track.album})" for i, track in enumerate(queue[1:], 2)]
+            )
+            embed.add_field(
+                name="Later:",
+                value=later_tracks,
+                inline=False
+            )
         return embed
     
     @discord.ui.button(
