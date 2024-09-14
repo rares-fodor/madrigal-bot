@@ -47,9 +47,10 @@ class NowPlayingView(View):
         queue = self.player.get_queued_tracks()
         up_next = queue[0] if queue else None
 
-        title = "Now playing:" if track else "No track playing"
+        title = "" if track else "No track playing"
         embed = discord.Embed(
-            color = discord.Color.yellow()
+            color = discord.Color.yellow(),
+            title=title
         )
 
         if track:
