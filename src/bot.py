@@ -7,6 +7,7 @@ from typing import Dict
 
 from src.db_manager import DatabaseManager
 from src.views.track_select import TrackResultsView
+from src.views.now_playing import NowPlayingView
 from src.models import Track
 from src.player import Player
 
@@ -88,6 +89,14 @@ class Bot:
             await interaction.response.send_message(f"Clearing playlist... 🌾")
             player.clear()
 
+        @self.tree.command(
+            name="skip",
+            description="Skip the current track"
+        )
+        async def skip_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            await player.skip(interaction)
+
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.
@@ -153,4 +162,4 @@ class Bot:
         
         self.__logger.info(f"Bot connecting to {user.voice.channel} in guild {interaction.guild.name}")
         voice_client = await user.voice.channel.connect()
-        self.players[interaction.guild] = Player(voice_client=voice_client)
+        self.players[interaction.guild] = Player(client=self.client, voice_client=voice_client)

@@ -8,6 +8,11 @@ class Track:
     artist: str
     album: str
 
+    def pretty(self) -> str:
+        return f"{self.title} - {self.artist} ({self.album})"
+    def pretty_noalbum(self) -> str:
+        return f"{self.title} - {self.artist}"
+
 @dataclass
 class DirectoryRow:
     id: Optional[int]
