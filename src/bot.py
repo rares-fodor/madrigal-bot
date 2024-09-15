@@ -121,6 +121,28 @@ class Bot:
                 return
             view = NowPlayingView(author=interaction.user, player=player)
             await view.display(interaction)
+        
+        @self.tree.command(
+            name="shazam",
+            description="Get the current playing track as a direct message"
+        )
+        async def shazam_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+
+            track = player.get_now_playing_track()
+            if not track:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+            
+            try:
+                await interaction.user.send(track.pretty())
+                await interaction.response.send_message(f"DM sent!", ephemeral=True)
+            except discord.Forbidden:
+                content = f"Couldn't send DM. Check your privacy settings! In the meantime: {track.pretty()}"
+                await interaction.response.send_message(content=content, ephemeral=True)
 
     def find_tracks_on_disk(self, query: str):
         """
