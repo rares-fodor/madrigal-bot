@@ -78,7 +78,7 @@ class TrackSelectionButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         await self.on_select(self.track, interaction)
         view: TrackResultsView = self.view
-        await view.original_response.edit(view=None, embed=onSelectEmbed(self.track))
+        await view.original_response.delete()
 
 
 class PreviousPageButton(discord.ui.Button):
@@ -99,15 +99,3 @@ class NextPageButton(discord.ui.Button):
         view: TrackResultsView = self.view
         view.page += 1
         await view.update_view(interaction)
-
-
-def onSelectEmbed(track: Track):
-    embed = discord.Embed(
-        color=discord.Color.yellow(),
-        title="Track selected"
-    )
-    embed.add_field(
-        name=f"{track.artist} - {track.title}",
-        value=track.album
-    )
-    return embed
