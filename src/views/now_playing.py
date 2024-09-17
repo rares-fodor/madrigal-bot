@@ -24,7 +24,12 @@ class NowPlayingView(View):
 
     async def display(self, interaction: discord.Interaction):
         embed = self._get_embed()
-        await interaction.response.send_message(view=self, embed=embed)
+
+        if not self.player.get_now_playing_track():
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message(view=self, embed=embed)
+
         self.current_interaction = interaction
         self.message = await interaction.original_response()
 
