@@ -8,6 +8,7 @@ from typing import Dict
 from src.db_manager import DatabaseManager
 from src.views.track_select import TrackResultsView
 from src.views.now_playing import NowPlayingView
+from src.views.queue import QueueView
 from src.models import Track
 from src.player import Player
 from src.consts import NOT_PLAYING
@@ -143,6 +144,19 @@ class Bot:
             except discord.Forbidden:
                 content = f"Couldn't send DM. Check your privacy settings! In the meantime: {track.pretty()}"
                 await interaction.response.send_message(content=content, ephemeral=True)
+        
+        @self.tree.command(
+            name="queue",
+            description="Get a list view of the queued tracks"
+        )
+        async def queue_command(interaction: discord.Interaction):
+            player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+
+            view = QueueView(player=player)
+            await view.display(interaction)
 
     def find_tracks_on_disk(self, query: str):
         """
