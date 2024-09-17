@@ -17,21 +17,21 @@ class ObservableQueue:
         self._values = []
         self._notify_callback = notify_callback
 
-    async def _notify(self):
-        await self._notify_callback()
+    def _notify(self):
+        self._notify_callback()
 
-    async def append(self, value):
+    def append(self, value):
         self._values.append(value) 
-        await self._notify()
+        self._notify()
 
-    async def pop(self, index = 0):
+    def pop(self, index = 0):
         value = self._values.pop(index)
-        await self._notify()
+        self._notify()
         return value
     
-    async def clear(self):
+    def clear(self):
         self._values.clear()
-        await self._notify()
+        self._notify()
 
     def get_values(self):
         return self._values
@@ -50,11 +50,17 @@ class ObservableQueue:
 
 
 class Player:
+    ON_QUEUE_CHANGED = 'queue_changed'
+    ON_TRACK_CHANGED = 'track_changed'
+
     def __init__(self, voice_client: discord.VoiceClient, client: discord.Client) -> None:
-        self.queue = ObservableQueue(self._notify_views)
+        self.queue = ObservableQueue(self._on_queue_changed)
         self.voice_client: discord.VoiceClient = voice_client
         self.client = client
-        self.active_views = []
+        self.active_views = {
+            Player.ON_QUEUE_CHANGED: [],
+            Player.ON_TRACK_CHANGED: []
+        }
         self.current_track: NowPlayingTrack = None
         self.__logger = logging.getLogger("player")
 
@@ -64,25 +70,35 @@ class Player:
     def get_queued_tracks(self):
         return [np.track for np in self.queue]
     
-    def add_view(self, view):
-        self.active_views.insert(0, view)       # Enqueue to ensure first edited is most recent
-        if len(self.active_views) > 3:          # Delete older /np messages
-            view = self.active_views.pop()
-            asyncio.create_task(view.delete())
+    def add_view(self, view, type: str):
+        if type in self.active_views:
+            views = self.active_views[type]
+            views.insert(0, view)       # Enqueue to ensure first edited is most recent
+            if len(views) > 3:          # Delete older /np messages
+                view = views.pop()
+                asyncio.create_task(view.delete())
+        else:
+            raise TypeError
 
     async def _remove_views(self):
         """ Delete tracked /np messages """
-        for view in self.active_views:
-            await view.delete()
+        for type in self.active_views:
+            for view in self.active_views[type]:
+                await view.delete()
 
-    async def _notify_views(self):
-        for view in self.active_views:
-            if view.current_interaction:
+    async def _notify_views(self, type: str):
+        if type in self.active_views:
+            for view in self.active_views[type]:
                 await view.redraw()
+        else:
+            raise TypeError
+    
+    def _on_queue_changed(self):
+        asyncio.create_task(self._notify_views(Player.ON_QUEUE_CHANGED))
 
     async def queue_track(self, path: str, track: Track):
         audio_source = discord.FFmpegPCMAudio(source=path, executable="ffmpeg")
-        await self.queue.append(NowPlayingTrack(audio_source, track))
+        self.queue.append(NowPlayingTrack(audio_source, track))
 
         if not self.voice_client.is_playing():
             await self._play_next()
@@ -95,7 +111,7 @@ class Player:
             # Read first, then remove
             # Avoids a race condition where a redraw reads current track before it is set
             self.current_track = self.queue[0]
-            await self.queue.pop(0)
+            self.queue.pop(0)
 
             after = lambda e: asyncio.run_coroutine_threadsafe(self._play_next(error=e), self.client.loop)
             self.voice_client.play(self.current_track.audio_source, after=after)
@@ -103,12 +119,14 @@ class Player:
 
         else:
             self.current_track = None
-            await self._notify_views()
             self.__logger.info(f"Finished playback")
+
+        # Call after setting self.current_track
+        await self._notify_views(Player.ON_TRACK_CHANGED)
 
     async def remove_track(self, index: int):
         if 0 <= index < len(self.queue):
-            await self.queue.pop(index)
+            self.queue.pop(index)
 
     async def clear(self, interaction: discord.Interaction=None):
         """
@@ -116,7 +134,7 @@ class Player:
         """
         if interaction:
             await interaction.response.send_message("Clearing playlist... 🌾")
-        await self.queue.clear()
+        self.queue.clear()
 
     async def disconnect(self, interaction: discord.Interaction=None):
         """
