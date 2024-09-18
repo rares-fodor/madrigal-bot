@@ -1,16 +1,41 @@
 import discord
 import logging
 import asyncio
+import mutagen
 
 from dataclasses import dataclass
 
 from src.models import Track
 from src.consts import NOT_PLAYING
 
+
+class ProgressAudioSource(discord.AudioSource):
+    def __init__(self, source, seek_offset_sec: float = 0) -> None:
+        super().__init__()
+        self._source = source
+        self.seek_offset = seek_offset_sec
+        self.read_count = 0
+
+    def read(self) -> bytes:
+        data = self._source.read()
+        if data:
+            self.read_count += 1
+        return data
+    
+    @property
+    def progress(self) -> float:
+        """Return the current time progress in the track"""
+        return self.read_count * 0.02 + self.seek_offset
+
 @dataclass
 class NowPlayingTrack:
-    audio_source: discord.AudioSource
+    audio_source: ProgressAudioSource
     track: Track
+    path: str
+    duration: float = 0
+
+    def __post_init__(self):
+        self.duration = _get_track_duration(self.path)
 
 class ObservableQueue:
     def __init__(self, notify_callback) -> None:
@@ -48,6 +73,13 @@ class ObservableQueue:
     def __repr__(self):
         return repr(self._values)
 
+def _get_track_duration(path: str) -> float:
+    """Return the track length in seconds"""
+    audio: mutagen.FileType = mutagen.File(path)
+    if audio:
+        audio.info.pprint()
+        return audio.info.length
+    raise RuntimeError
 
 class Player:
     ON_QUEUE_CHANGED = 'queue_changed'
@@ -97,8 +129,8 @@ class Player:
         asyncio.create_task(self._notify_views(Player.ON_QUEUE_CHANGED))
 
     async def queue_track(self, path: str, track: Track):
-        audio_source = discord.FFmpegPCMAudio(source=path, executable="ffmpeg")
-        self.queue.append(NowPlayingTrack(audio_source, track))
+        audio_source = ProgressAudioSource(discord.FFmpegPCMAudio(source=path, executable="ffmpeg"), seek_offset_sec=0)
+        self.queue.append(NowPlayingTrack(audio_source, track, path))
 
         if not self.voice_client.is_playing():
             await self._play_next()
@@ -115,7 +147,7 @@ class Player:
 
             after = lambda e: asyncio.run_coroutine_threadsafe(self._play_next(error=e), self.client.loop)
             self.voice_client.play(self.current_track.audio_source, after=after)
-            self.__logger.info(f"Now playing: {self.current_track.track.pretty()}")
+            self.__logger.info(f"Now playing: {self.current_track.track.pretty()} [{self.current_track.audio_source.progress}]")
 
         else:
             self.current_track = None
