@@ -170,10 +170,14 @@ class Bot:
             view = QueueView(player=player)
             await view.display(interaction)
 
+        class SeekType(str, Enum):
+            FORWARD = "forward"
+            BACK = "back"
+            EXACT = "exact"
+
         seek_type_choices = [
-            discord.app_commands.Choice(name="Forward", value="forward"),
-            discord.app_commands.Choice(name="Back", value="back"),
-            discord.app_commands.Choice(name="Exact", value="exact")
+            discord.app_commands.Choice(name=choice.value, value=choice.value)
+                for choice in SeekType
         ]
         @self.tree.command(
             name="seek",
@@ -188,13 +192,11 @@ class Bot:
             
             try:
                 seek_to = _parse_seconds(time)
-                if seek_type.value == "backward":
+                relative = seek_type.value != SeekType.EXACT
+                if seek_type.value == SeekType.BACK:
                     seek_to = -seek_to
                 
-                if seek_type.value == "exact":
-                    await player.seek(seek_to=seek_to, relative=False, interaction=interaction)
-                else:
-                    await player.seek(seek_to=seek_to, relative=True, interaction=interaction)
+                await player.seek(seek_to, relative, interaction)
 
             except ValueError as e:
                 await interaction.response.send_message(str(e), ephemeral=True)
