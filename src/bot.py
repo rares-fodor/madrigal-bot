@@ -183,6 +183,10 @@ class Bot:
             name="seek",
             description="Forward/rewind or skip to a position in the current track"
         )
+        @discord.app_commands.describe(
+            seek_type="Choose how to seek through the track",
+            time="The time to seek by (forward/back) or to (exact). Format: hh:mm:ss or mm:ss or sss"
+        )
         @discord.app_commands.choices(seek_type=seek_type_choices)
         async def seek_command(interaction: discord.Interaction, seek_type: discord.app_commands.Choice[str], time: str):
             player = self.players.get(interaction.guild)
