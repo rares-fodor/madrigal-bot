@@ -49,6 +49,10 @@ class ObservableQueue:
         self._values.append(value) 
         self._notify()
 
+    def insert(self, index, value):
+        self._values.insert(index, value) 
+        self._notify()
+
     def pop(self, index = 0):
         value = self._values.pop(index)
         self._notify()
@@ -213,3 +217,39 @@ class Player:
                 await interaction.response.send_message(f"Skipping {self.get_now_playing_track().pretty()}", ephemeral=True)
         elif interaction:
             await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+    
+    async def seek(self, seek_to: float, relative = False, interaction: discord.Interaction=None):
+        """
+        Seek to a specific time in the current track. If `relative` is True, seeking is relative
+        to the current position
+        """
+        if self.current_track is None:
+            self.__logger.warning("No track is playing")
+            return
+
+        progress = self.current_track.audio_source.progress
+
+        if relative:
+            seek_to = max(0, progress + seek_to)
+        if seek_to > self.current_track.duration:
+            if interaction:
+                await interaction.response.send_message(f"Seek position exceeds track length, skipping")
+                await self.skip()
+                return
+
+        ffmpeg_options = {
+            "before_options": f"-ss {seek_to}"
+        }
+
+        new_source = ProgressAudioSource(discord.FFmpegPCMAudio(self.current_track.path, **ffmpeg_options), seek_offset_sec=seek_to)
+        new_track = self.current_track
+        new_track.audio_source = new_source
+        self.queue.insert(0, new_track)
+
+        # Skip to "seeked" track
+        self.voice_client.stop()
+
+        if interaction:
+            await interaction.response.send_message(f"Skipped {self.current_track.track.pretty()} to {seek_to}")
+
+        await self._notify_views(Player.ON_TRACK_CHANGED)

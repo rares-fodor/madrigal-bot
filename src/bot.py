@@ -13,6 +13,18 @@ from src.models import Track
 from src.player import Player
 from src.consts import NOT_PLAYING
 
+def _parse_seconds(time: str):
+    parts = time.split(':')
+
+    if not all(part.isdigit() for part in parts):
+        raise ValueError(f"Invalid format: {time}. Time must be either hh:mm:ss, mm:ss, or ss")
+    
+    # Reverse parts to align them from least significant (seconds) to most significant (hours)
+    parts = list(map(int, parts[::-1]))
+
+    scalars = (1, 60, 3600)
+    return sum(part * scalar for part, scalar in zip(parts, scalars))
+
 class Bot:
     def __init__(self, db: DatabaseManager, intents=discord.Intents.default()) -> None:
         self.db = db
@@ -158,6 +170,35 @@ class Bot:
             view = QueueView(player=player)
             await view.display(interaction)
 
+        seek_type_choices = [
+            discord.app_commands.Choice(name="Forward", value="forward"),
+            discord.app_commands.Choice(name="Back", value="back"),
+            discord.app_commands.Choice(name="Exact", value="exact")
+        ]
+        @self.tree.command(
+            name="seek",
+            description="Forward/rewind or skip to a position in the current track"
+        )
+        @discord.app_commands.choices(seek_type=seek_type_choices)
+        async def seek_command(interaction: discord.Interaction, seek_type: discord.app_commands.Choice[str], time: str):
+            player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+            
+            try:
+                seek_to = _parse_seconds(time)
+                if seek_type.value == "backward":
+                    seek_to = -seek_to
+                
+                if seek_type.value == "exact":
+                    await player.seek(seek_to=seek_to, relative=False, interaction=interaction)
+                else:
+                    await player.seek(seek_to=seek_to, relative=True, interaction=interaction)
+
+            except ValueError as e:
+                await interaction.response.send_message(str(e), ephemeral=True)
+            
     def find_tracks_on_disk(self, query: str):
         """
         Search the database for rows matching the query string. Returns the matching rows.
