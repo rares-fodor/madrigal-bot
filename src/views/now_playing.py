@@ -2,6 +2,7 @@ import discord
 
 from discord.ui import View
 from src.player import Player
+from src.utils import format_seconds
 
 class NowPlayingView(View):
     def __init__(self, author: discord.User, player: Player) -> None:
@@ -53,10 +54,28 @@ class NowPlayingView(View):
             return discord.Embed(
                 title="No track playing"
             )
+
+        (progress, duration) = self.player.get_current_track_progress()
+        progress_bar = self._create_progress_bar(progress, duration)
+        progress = format_seconds(progress)
+        duration = format_seconds(duration)
+
         return discord.Embed(color=discord.Color.yellow()).add_field(
             name="Now playing:",
             value=f"{track.pretty_noalbum()}\n({track.album})"
+        ).add_field(
+            name=f"{progress}/{duration}",
+            value=f"{progress_bar}",
+            inline=False
         )
+    
+    def _create_progress_bar(self, progress, duration, bar_length=20):
+        if duration <= 0:
+            return
+        ratio = progress / duration
+        filled_len = int(bar_length * ratio)
+        bar = "▬" * filled_len + "🔘" + "▬" * (bar_length - filled_len - 1)
+        return bar
 
     @discord.ui.button(
         label="⏪",

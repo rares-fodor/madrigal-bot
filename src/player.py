@@ -103,6 +103,11 @@ class Player:
 
     def get_now_playing_track(self):
         return self.current_track.track if self.current_track else None
+    
+    def get_current_track_progress(self):
+        if self.current_track:
+            return (self.current_track.audio_source.progress, self.current_track.duration)
+        return None
 
     def get_queued_tracks(self):
         return [np.track for np in self.queue]
