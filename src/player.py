@@ -251,6 +251,6 @@ class Player:
         self.voice_client.stop()
 
         if interaction:
-            await interaction.response.send_message(f"Skipped {self.current_track.track.pretty()} to {format_seconds(int(seek_to))}")
+            await interaction.response.send_message(f"Skipped {self.current_track.track.pretty()} to {format_seconds(seek_to)}")
 
         await self._notify_views(Player.ON_TRACK_CHANGED)

@@ -4,6 +4,7 @@ import atexit
 import asyncio
 
 from typing import Dict
+from enum import Enum
 
 from src.db_manager import DatabaseManager
 from src.views.track_select import TrackResultsView

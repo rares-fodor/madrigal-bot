@@ -1,6 +1,7 @@
 
 def format_seconds(time: int) -> str:
     """Convert the given amount of seconds into a hh:mm:ss format"""
+    time = int(time)
 
     hours = time // 3600
     time %= 3600
