@@ -101,6 +101,9 @@ class Player:
         self.current_track: NowPlayingTrack = None
         self.__logger = logging.getLogger("player")
 
+    def is_playing(self):
+        return self.voice_client.is_playing()
+
     def get_now_playing_track(self):
         return self.current_track.track if self.current_track else None
     
@@ -111,7 +114,7 @@ class Player:
 
     def get_queued_tracks(self):
         return [np.track for np in self.queue]
-    
+
     def add_view(self, view, type: str):
         if type in self.active_views:
             views = self.active_views[type]

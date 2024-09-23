@@ -1,5 +1,7 @@
 import discord
 
+from discord.ext import tasks
+
 from discord.ui import View
 from src.player import Player
 from src.utils import format_seconds
@@ -14,6 +16,7 @@ class NowPlayingView(View):
         self.player.add_view(self, Player.ON_TRACK_CHANGED)
 
     async def delete(self):
+        self._refresh_view.stop()
         await self.message.delete()
 
     async def interaction_check(self, interaction: discord.Interaction[discord.Client]) -> bool:
@@ -33,6 +36,7 @@ class NowPlayingView(View):
 
         self.current_interaction = interaction
         self.message = await interaction.original_response()
+        self._refresh_view.start()
 
     async def redraw(self, interaction: discord.Interaction = None):
         embed = self._get_embed()
@@ -108,3 +112,8 @@ class NowPlayingView(View):
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.player.skip()
         await self.redraw(interaction=interaction)
+
+    @tasks.loop(seconds=1)
+    async def _refresh_view(self):
+        if self.player.is_playing():
+            await self.redraw()
