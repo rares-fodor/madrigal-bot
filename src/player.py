@@ -90,16 +90,16 @@ class Player:
     ON_QUEUE_CHANGED = 'queue_changed'
     ON_TRACK_CHANGED = 'track_changed'
 
-    def __init__(self, voice_client: discord.VoiceClient, client: discord.Client) -> None:
+    def __init__(self, voice_client: discord.VoiceClient) -> None:
         self.queue = ObservableQueue(self._on_queue_changed)
         self.voice_client: discord.VoiceClient = voice_client
-        self.client = client
         self.active_views = {
             Player.ON_QUEUE_CHANGED: [],
             Player.ON_TRACK_CHANGED: []
         }
         self.current_track: NowPlayingTrack = None
         self.__logger = logging.getLogger("player")
+        self.loop = asyncio.get_event_loop()
 
     def is_playing(self):
         return self.voice_client.is_playing()
@@ -158,7 +158,7 @@ class Player:
             self.current_track = self.queue[0]
             self.queue.pop(0)
 
-            after = lambda e: asyncio.run_coroutine_threadsafe(self._play_next(error=e), self.client.loop)
+            after = lambda e: asyncio.run_coroutine_threadsafe(self._play_next(error=e), self.loop)
             self.voice_client.play(self.current_track.audio_source, after=after)
             self.__logger.info(f"Now playing: {self.current_track.track.pretty()} [{self.current_track.audio_source.progress}]")
 

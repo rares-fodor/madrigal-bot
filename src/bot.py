@@ -270,4 +270,4 @@ class Bot:
         
         self.__logger.info(f"Bot connecting to {user.voice.channel} in guild {interaction.guild.name}")
         voice_client = await user.voice.channel.connect()
-        self.players[interaction.guild] = Player(client=self.client, voice_client=voice_client)
+        self.players[interaction.guild] = Player(voice_client=voice_client)
