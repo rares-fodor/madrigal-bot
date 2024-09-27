@@ -125,6 +125,22 @@ class Bot:
             await player.skip(interaction)
 
         @self.tree.command(
+            name="remove",
+            description="Remove track at index"
+        )
+        async def remove_command(interaction: discord.Interaction, index: int, end_index: int = None):
+            player = self.players.get(interaction.guild)
+            if not player:
+                await interaction.response.send_message(NOT_PLAYING, ephemeral=True)
+                return
+
+            # Convert to 0-index
+            index -= 1
+            if end_index:
+                end_index -= 1
+            await player.remove_track(interaction, index, end_index)
+
+        @self.tree.command(
             name="np",
             description="Show the current playlist"
         )

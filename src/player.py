@@ -169,9 +169,37 @@ class Player:
         # Call after setting self.current_track
         await self._notify_views(Player.ON_TRACK_CHANGED)
 
-    async def remove_track(self, index: int):
-        if 0 <= index < len(self.queue):
-            self.queue.pop(index)
+    async def remove_track(self, interaction: discord.Interaction, index: int, end_index: int = None):
+        """
+        Removes track at index, or if end_index is defined it removes tracks between given indices.
+        """
+        limit = len(self.queue) + 1     # Now playing track is not in the queue but we account for it
+        if end_index is None:
+            end_index = index
+
+        if index < 0 or index > limit or end_index < 0 or end_index > limit:
+            await interaction.response.send_message(f"Please use values 1 - {limit}", ephemeral=True)
+            return
+
+        if end_index < index:
+            index, end_index = end_index, index
+
+        titles = []
+        need_skip = False
+        for i in range(index, end_index + 1):
+            if i == 0:
+                need_skip = True
+                titles.append(self.current_track.track.title)
+                continue
+            track: NowPlayingTrack = self.queue.pop()
+            titles.append(track.track.title)
+        
+        if need_skip:
+            # Requested skip of current track. Skip after removing rest to avoid race
+            await self.skip()
+
+        titles_removed = ", ".join(titles)
+        await interaction.response.send_message(f"Removed [{titles_removed}] from the queue")
 
     async def clear(self, interaction: discord.Interaction=None):
         """
