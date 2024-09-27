@@ -9,6 +9,7 @@ class QueueView(discord.ui.View):
         self.current_interaction = None
         self.message = None
         self.player.add_view(self, Player.ON_QUEUE_CHANGED)
+        self.player.add_view(self, Player.ON_TRACK_CHANGED)
 
     async def delete(self):
         await self.message.delete()
